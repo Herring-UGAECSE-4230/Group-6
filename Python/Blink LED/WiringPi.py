@@ -3,7 +3,7 @@ import time
 
 wiringpi.wiringPiSetupGpio()
 wiringpi.softToneCreate(18)
-wiringpi.softToneWrite(18,0.1)
+wiringpi.softToneWrite(18,1)
 
 try:
     while True:
