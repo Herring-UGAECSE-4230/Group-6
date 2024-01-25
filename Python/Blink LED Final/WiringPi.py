@@ -5,7 +5,7 @@ import time
 #Set up GPIO and frequency
 wiringpi.wiringPiSetupGpio()
 wiringpi.softToneCreate(18)
-wiringpi.softToneWrite(18,1)
+wiringpi.softToneWrite(18,2500)
 
 #Loop to keep the programming running
 try:
