@@ -1,51 +1,59 @@
+#import libraries
 import RPi.GPIO as GPIO
 import time
 
+#Horizontal Mapping Values
+X1 = 18
+X2 = 23
+X3 = 24
+X4 = 25
+
+#Vertical Mapping Values
+Y1 = 12
+Y2 = 16
+Y3 = 20 
+Y4 = 21
+
+#setup GPIO
 GPIO.setmode(GPIO.BCM)
 
-GPIO.setup(18, GPIO.OUT)
-GPIO.setup(23, GPIO.OUT)
-GPIO.setup(24, GPIO.OUT)
-GPIO.setup(25, GPIO.OUT)
-GPIO.setup(12, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(16, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(20, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(21, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(X1, GPIO.OUT)
+GPIO.setup(X2, GPIO.OUT)
+GPIO.setup(X3, GPIO.OUT)
+GPIO.setup(X4, GPIO.OUT)
+GPIO.setup(Y1, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(Y2, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(Y3, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(Y4, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-pressed_key = None
+#main keypad loop
+def readKey(rowNum, char):
+    curVal = 0
+    GPIO.output(rowNum, GPIO.HIGH)
+    if GPIO.input(Y1) == 1:
+        curVal = char[0]
+        print (curVal)
+    if GPIO.input(Y2) == 1:
+        curVal = char[1]
+        print (curVal)
+    if GPIO.input(Y3) == 1:
+        curVal = char[2]
+        print (curVal)
+    if GPIO.input(Y4) == 1:
+        curVal = char[3]
+        print (curVal)
+    GPIO.output(rowNum, GPIO.LOW)
 
-def readLine(line, characters):
-    global pressed_key
-    GPIO.output(line, GPIO.HIGH)
-    if GPIO.input(12) == 1:
-        pressed_key = characters[0]
-    elif GPIO.input(16) == 1:
-        pressed_key == characters[1]
-    elif GPIO.input(20) == 1:
-        pressed_key == characters[2]
-    elif GPIO.input(21) == 1:
-        pressed_key == characters[3]
-    GPIO.output(line, GPIO.LOW)
-
-def read_key ():
-    global pressed_key
-    pressed_key = None
-    time.sleep(0.35)
-    for line, char_set in [(18, ["1","2","3","A"]),
-                           (23, ["4","5","6","B"]),
-                           (24, ["7","8","9","C"]),
-                           (25, ["*","0","#","D"])]:
-        readLine(line, char_set)
-        if pressed_key:
-            break
-        return pressed_key
 try:
     while True:
-        key = read_key()
-        if key:
-            print("Pressed Key: ", key)
+        readKey (X1, ["1","2","3","A"])
+        time.sleep(0.1)
+        readKey (X2, ["4","5","6","B"])
+        time.sleep(0.1)
+        readKey (X3, ["7","8","9","C"])
+        time.sleep(0.1)
+        readKey (X4, ["*","0","#","D"])
+        time.sleep(0.1)
 
 except KeyboardInterrupt:
-    print("Quitting...")
-finally:
-    GPIO.cleanup()
+    print("\nQuitting")
