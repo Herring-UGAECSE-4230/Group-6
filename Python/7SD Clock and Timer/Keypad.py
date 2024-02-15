@@ -2,6 +2,8 @@
 import RPi.GPIO as GPIO
 import time
 
+
+
 #Horizontal Mapping Values
 X1 = 18
 X2 = 23
@@ -25,6 +27,10 @@ GPIO.setup(Y1, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(Y2, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(Y3, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(Y4, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+
+
+
 
 #main keypad loop
 def readKey(rowNum, char):
