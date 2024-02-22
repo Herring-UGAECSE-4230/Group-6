@@ -8,16 +8,16 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 
 # X-Values (Horizontal) Mapping
-GPIO.setup(18, GPIO.OUT) # Yellow Wire X1
-GPIO.setup(23, GPIO.OUT) # Orange Wire X2
-GPIO.setup(24, GPIO.OUT) # Brown Wire X3
-GPIO.setup(25, GPIO.OUT) # Red Wire X4
+GPIO.setup(18, GPIO.OUT) 
+GPIO.setup(23, GPIO.OUT) 
+GPIO.setup(24, GPIO.OUT) 
+GPIO.setup(25, GPIO.OUT) 
 
 # Y-Values (Vertical) Mapping
-GPIO.setup(12, GPIO.IN) # Black Wire Y1
-GPIO.setup(16, GPIO.IN) # White Wire Y2
-GPIO.setup(20, GPIO.IN) # Gray Wire Y3
-GPIO.setup(21, GPIO.IN) # Blue Wire Y4
+GPIO.setup(12, GPIO.IN) 
+GPIO.setup(16, GPIO.IN) 
+GPIO.setup(20, GPIO.IN) 
+GPIO.setup(21, GPIO.IN) 
 
 # Clock Setup
 Clk1 = 26
@@ -35,7 +35,7 @@ F = 27
 A = 17
 B = 4
 
-LED = 12
+# LED = 12
 GPIO.setup(Clk1, GPIO.OUT) # Clock 1
 GPIO.setup(Clk2, GPIO.OUT) # Clock 2
 GPIO.setup(Clk3, GPIO.OUT) # Clock 3
@@ -49,7 +49,7 @@ GPIO.setup(G, GPIO.OUT) # G
 GPIO.setup(F, GPIO.OUT) # F
 GPIO.setup(A, GPIO.OUT) # A
 GPIO.setup(B, GPIO.OUT) # B
-GPIO.setup(LED, GPIO.OUT) #LED gpio
+# GPIO.setup(LED, GPIO.OUT) #LED gpio
 count = 0
 enable = True
 last1 = []
