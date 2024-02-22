@@ -27,7 +27,8 @@ G = 22
 F = 27
 A = 17
 B = 4
-GPIO.setup(Clk, GPIO.OUT) #Clock 
+GPIO.setup(Clk, GPIO.OUT) #Clock 1
+
 GPIO.setup(E, GPIO.OUT) #E
 GPIO.setup(D, GPIO.OUT) #D
 GPIO.setup(C, GPIO.OUT) #C
@@ -84,7 +85,7 @@ while True:
     if row1 == 1:
         resetGPIO()
         GPIO.output([B,C], GPIO.HIGH)
-        GPIO.output(Clk, GPIO.HIGH)
+        GPIO.output(Clk, GPIO.HIGH)        
         time.sleep(0.1)
         GPIO.output(Clk, GPIO.LOW)
     elif row1 == 2:

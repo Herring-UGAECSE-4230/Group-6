@@ -26,16 +26,16 @@ Clk3 = 9
 Clk4 = 11
 
 # Seven Segment Setup
-E = 13
-D = 6
-C = 5
 DP = 19
-G = 22
-F = 27
 A = 17
 B = 4
+C = 5
+D = 6
+E = 13
+F = 27
+G = 22
+LED = 12
 
-# LED = 12
 GPIO.setup(Clk1, GPIO.OUT) # Clock 1
 GPIO.setup(Clk2, GPIO.OUT) # Clock 2
 GPIO.setup(Clk3, GPIO.OUT) # Clock 3
@@ -49,7 +49,8 @@ GPIO.setup(G, GPIO.OUT) # G
 GPIO.setup(F, GPIO.OUT) # F
 GPIO.setup(A, GPIO.OUT) # A
 GPIO.setup(B, GPIO.OUT) # B
-# GPIO.setup(LED, GPIO.OUT) #LED gpio
+GPIO.setup(LED, GPIO.OUT) #LED gpio
+
 count = 0
 enable = True
 last1 = []
@@ -211,7 +212,7 @@ while True:
         GPIO.output(Clk4, GPIO.LOW)
     elif row4 == '#':
         resetGPIO(Clk4)
-        print("useless")
+        print("display")
         if(enable):
                 GPIO.output([Clk1,Clk2, Clk3, Clk4], GPIO.HIGH)
                 time.sleep(0.1)
@@ -223,9 +224,10 @@ while True:
                enable = True
                loadLast(Clk1,last1)
                loadLast(Clk2,last2)
-               loadLast(Clk3, last3)
-               loadLast(Clk4, last4)
+               loadLast(Clk3,last3)
+               loadLast(Clk4,last4)
                print(enable)
+            
     elif row4 == 'D' and enable:
         resetGPIO(Clk4)
         if (count % 2 == 0):
@@ -239,5 +241,6 @@ while True:
 
         time.sleep(0.1)
         GPIO.output(Clk4, GPIO.LOW)
+   
     
     GPIO.output([Clk1,Clk2,Clk3,Clk4], GPIO.LOW)
