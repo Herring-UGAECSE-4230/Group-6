@@ -1,0 +1,130 @@
+import RPi.GPIO as GPIO
+import time
+
+# GPIO Setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
+# GPIO Setup with modified pin numbers
+GPIO.setup(27, GPIO.IN)  # Input from telegraph key (Pin 27)
+GPIO.setup(22, GPIO.OUT)  # Output to LED (Pin 22)
+GPIO.setup(17, GPIO.OUT)  # Output to speaker (Pin 17)
+pwm = GPIO.PWM(17, 500)  # Initialize PWM on pin 17 at 500Hz
+
+# English to morse code mapping
+MORSE_CODE_DICT = {
+    'a': '.-', 'b': '-...', 'c': '-.-.', 'd': '-..', 'e': '.', 'f': '..-.', 
+    'g': '--.', 'h': '....', 'i': '..', 'j': '.---', 'k': '-.-', 'l': '.-..', 
+    'm': '--', 'n': '-.', 'o': '---', 'p': '.--.', 'q': '--.-', 'r': '.-.', 
+    's': '...', 't': '-', 'u': '..-', 'v': '...-', 'w': '.--', 'x': '-..-', 
+    'y': '-.--', 'z': '--..', ' ': ' ', 'attention': '-.-.-', 'over': '-.-',
+    'out': '.-.-.', '1': '.----', '0': '-----', '9': '----.-', "sos": "...---...", "?": "?"
+}
+
+# Morse code to English mapping
+MORSE_TO_LETTERS = {v: k for k, v in MORSE_CODE_DICT.items()}
+
+# Global variables
+dot_length = 1
+dash_length = 3 * dot_length
+word_break_length = 7 * dot_length
+space_between_letters = 3 * dot_length
+morse = ""
+word = ""
+calibrated = False
+threshold = 0.01
+
+# Encoding method from MC Encoder
+def encode():
+    global word
+    with open("output.txt", "w") as outputfile:
+        mc = ""
+        for x in word.split("\n"):
+            if x in MORSE_CODE_DICT:
+                mc += MORSE_CODE_DICT[x] + " | " + x + "\n"
+        mc = mc.rstrip("\n")
+        outputfile.write(mc)
+
+# Calibrating based on code word "attention"
+def calibrate():
+    global calibrated
+    count = 0
+    print("Tap: -.-.-")
+    while not calibrated:
+        if GPIO.input(27) == 1:
+            GPIO.output(22, GPIO.HIGH)  # Turn on LED when key is pressed
+            time.sleep(0.05)
+            if count == 0:
+                dash_start = time.time()
+            elif count == 1:
+                dot_start = time.time()
+            elif count == 2:
+                dash_start = time.time()
+            elif count == 3:
+                dot_start = time.time()
+            elif count == 4:
+                dash_start = time.time()
+            while GPIO.input(27) == 1:
+                pass
+            time.sleep(0.01)
+            count += 1
+        elif GPIO.input(27) == 0:
+            GPIO.output(22, GPIO.LOW)  # Turn off LED when key is released
+            if count == 1:
+                first_dash = time.time() - dash_start
+            elif count == 2:
+                first_dot = time.time() - dot_start
+            elif count == 3:
+                second_dash = time.time() - dash_start
+            elif count == 4:
+                second_dot = time.time() - dot_start
+            elif count == 5:
+                third_dash = time.time() - dash_start
+                calibrated = True
+
+    global dot_length
+    dot_length = (first_dash + second_dash + third_dash) / 9
+    print("The unit dot length is:", dot_length)
+    global dash_length
+    dash_length = 3 * dot_length
+
+# Calibrate dot length
+calibrate()
+print("Calibrated")
+
+# Morse code detection loop
+while True:
+    if GPIO.input(27) == 1:  # If signal detected, go into "on" mode
+        on = time.time()
+        while GPIO.input(27) == 1:  # While key is held down, timer is running
+            pwm.start(50)  # Start PWM for sound
+        GPIO.output(17, 0)  # Turn off LED
+        on_length = time.time() - on  # Timer for "on" state of key
+        if dot_length < on_length < dash_length:  # If on length is less than dash length -> .
+            morse += "."
+            print(".")
+        elif dash_length < on_length:  # If on length is more than dash length -> -
+            morse += "-"
+            print("-")
+    elif GPIO.input(27) == 0:  # If no signal detected, go into "off" mode
+        pwm.stop()  # Stop PWM for sound
+        off = time.time()
+        while GPIO.input(27) == 0:
+            GPIO.output(17, 0)  # Turn off LED
+        off_length = time.time() - off  # Timer for "off" state of key
+        if dot_length < off_length < space_between_letters:  # If off time is less than space between letters -> Morse code
+            time.sleep(0.01)
+        elif space_between_letters < off_length < word_break_length:  # If off time is between space between letters and word break -> Space between letters
+            time.sleep(0.01)
+        elif off_length > word_break_length:  # If off time is more than word break length -> Space between words
+            time.sleep(0.01)
+            if morse in MORSE_TO_LETTERS:
+                character = MORSE_TO_LETTERS[morse]
+                word += character + "\n"
+                print(word)
+                if character == "out":
+                    encode()
+                    break
+            elif len(morse) > 0:
+                word += "?" + "\n"
+            morse = ""
