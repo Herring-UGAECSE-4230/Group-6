@@ -1,135 +1,109 @@
 import RPi.GPIO as GPIO
 import time
 
-# GPIO pin assignments
-ledPin = 22
-speakerPin = 27
-telegraphPin = 17
-
-# Default value for dot, will be calibrated
-dot = 0.1
-dash = dot * 3
-symbol_gap = dot
-letter_gap = dot * 3
-word_gap = dot * 7
-freq = 500
-turnOnSpeakerAndLED = True
-
-# GPIO setup
+# GPIO Setup
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(ledPin, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(speakerPin, GPIO.OUT, initial=GPIO.LOW)
-GPIO.setup(telegraphPin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-pwm = GPIO.PWM(speakerPin, freq)  # Corrected to speakerPin for sound output
+GPIO.setwarnings(False)
 
-# Morse code dictionary
-MC_Letters = {
-    'a': '.-', 'b': '-...', 'c': '-.-.', 'd': '-..', 'e': '.', 'f': '..-.', 'g': '--.', 'h': '....',
-    'i': '..', 'j': '.---', 'k': '-.-', 'l': '.-..', 'm': '--', 'n': '-.', 'o': '---', 'p': '.--.',
-    'q': '--.-', 'r': '.-.', 's': '...', 't': '-', 'u': '..-', 'v': '...-', 'w': '.--', 'x': '-..-',
-    'y': '-.--', 'z': '--..', '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
-    '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----', ' ': '       ',  # Space
-    'attention': '-.-.-', 'over': '-.-', 'out': '.-.-.',
-}
+# Pin Definitions
+KEY_PIN = 23  # Telegraph key input
+SPEAKER_PIN = 25  # Speaker output
+LED_PIN = 24  # LED output
 
-Letters_MC = {value: key for key, value in MC_Letters.items()}
+# Setup GPIO pin directions
+GPIO.setup(KEY_PIN, GPIO.IN)
+GPIO.setup(SPEAKER_PIN, GPIO.OUT)
+GPIO.setup(LED_PIN, GPIO.OUT)
 
-# Function definitions
+# PWM Setup for Speaker
+pwm = GPIO.PWM(SPEAKER_PIN, 500)  # Set PWM to 500Hz
 
-def play_tone(pwm, duration):
-    if turnOnSpeakerAndLED:
-        pwm.start(50)
-        time.sleep(duration)
-        pwm.stop()
+# Morse Code Dictionaries
+MORSE_CODE_DICT = {'a': '.-', 'b': '-...', 'c': '-.-.', 'd': '-..', 'e': '.', 'f': '..-.', 
+                   'g': '--.', 'h': '....', 'i': '..', 'j': '.---', 'k': '-.-', 'l': '.-..', 
+                   'm': '--', 'n': '-.', 'o': '---', 'p': '.--.', 'q': '--.-', 'r': '.-.', 
+                   's': '...', 't': '-', 'u': '..-', 'v': '...-', 'w': '.--', 'x': '-..-', 
+                   'y': '-.--', 'z': '--..', ' ': ' ', 'attention': '-.-.-', 'over': '-.-', 
+                   'out': '.-.-.', '1': '.----', '0': '-----', '9': '----.-', "sos": "...---...", "?": "?"}
 
-def output_mc(morse_code):
-    for symbol in morse_code:
-        if symbol == '.':
-            play_tone(pwm, dot)
-            time.sleep(symbol_gap)
-        elif symbol == '-':
-            play_tone(pwm, dash)
-            time.sleep(symbol_gap)
-        elif symbol == ' ':
-            time.sleep(letter_gap)
-        else:
-            time.sleep(word_gap)
+MORSE_TO_LETTERS = {v: k for k, v in MORSE_CODE_DICT.items()}
 
-def timeOfPressOrRest(stateOnCall):
-    startTime = time.perf_counter()
-    if stateOnCall == 1:
-        GPIO.wait_for_edge(telegraphPin, GPIO.FALLING)
-    else:
-        GPIO.wait_for_edge(telegraphPin, GPIO.RISING)
-    endTime = time.perf_counter()
-    return endTime - startTime
+# Global Variables
+dot_length = 0
+morse = ""
+word = ""
+calibrated = False
+DEBOUNCE_DELAY = 0.05  # Debounce delay in seconds
 
-def timeToMorseChar(time, stateOnCall):
-    if stateOnCall == 1:
-        if time >= (dot * 2):
-            return '-'
-        else:
-            return '.'
-    else:
-        if time >= (dot * 7):
-            return '       '  # Word space
-        elif time >= (dot * 2):
-            return '   '  # Letter space
-        else:
-            return ''
-    return ''
+# Function to Handle Morse Code Conversion
+def handle_morse_code(signal_length):
+    global morse, word
 
-def determineAverageDotandDash():
-    global dot, dash
-    dot_times, dash_times = [], []
+    if signal_length < dot_length * 2:
+        morse += "."
+    elif signal_length >= dot_length * 2:
+        morse += "-"
+
+    print(f"Current Morse: {morse}")  # Debug print
+
+# Decode Morse code to letter and reset morse code variable
+def decode_morse():
+    global morse, word
+    character = MORSE_TO_LETTERS.get(morse, "?")
+    word += character
+    print(f"Decoded Character: {character}")  # Debug print
+    morse = ""  # Reset morse code variable
+
+# Calibration Function
+def calibrate():
+    global dot_length, calibrated
+    print("Calibration started. Please input 'attention' in Morse Code (-.-.-).")
+    times = []
+
+    for _ in range(5):  # Expecting five signals: dot, dash, dot, dash, dot
+        while GPIO.input(KEY_PIN) == GPIO.LOW:
+            pass  # Wait for the key press
+        time.sleep(DEBOUNCE_DELAY)  # Debounce
+        if GPIO.input(KEY_PIN) == GPIO.HIGH:
+            GPIO.output(LED_PIN, GPIO.HIGH)  # LED on for visual feedback
+            start_time = time.time()
+            while GPIO.input(KEY_PIN) == GPIO.HIGH:
+                pass  # Wait for release
+            GPIO.output(LED_PIN, GPIO.LOW)  # LED off after release
+            signal_length = time.time() - start_time
+            times.append(signal_length)
+            print(f"Signal {len(times)} received.")
     
-    for _ in range(3):  # Repeat three times for averaging
-        GPIO.wait_for_edge(telegraphPin, GPIO.RISING)
-        start_time = time.perf_counter()
-        GPIO.wait_for_edge(telegraphPin, GPIO.FALLING)
-        duration = time.perf_counter() - start_time
-        if duration < 0.2:  # Assuming a short press is a dot
-            dot_times.append(duration)
-        else:  # Assuming a longer press is a dash
-            dash_times.append(duration)
-    
-    dot = sum(dot_times) / len(dot_times) if dot_times else 0.1
-    dash = sum(dash_times) / len(dash_times) if dash_times else dot * 3
-    print(f"Calibrated dot: {dot}s, dash: {dash}s")
+    # Calculate average dot length from the received signals
+    dot_length = sum(times) / len(times)
+    calibrated = True
+    print(f"Calibration complete. Average signal length (dot length): {dot_length:.3f}s")
 
-def morse_to_letter(morse):
-    return Letters_MC.get(morse, '?')
+# Main Function
+def main():
+    global morse, word
+    calibrate()  # Start with calibration
 
-def decodeUserInput():
-    morseInput, decodedWord = "", ""
-    stateOnCall = 1  # Assume starting with a press
-    while True:
-        timeHeld = timeOfPressOrRest(stateOnCall)
-        morseChar = timeToMorseChar(timeHeld, stateOnCall)
-        if morseChar.strip():
-            morseInput += morseChar
-            if stateOnCall:  # If previously waiting for release, now wait for press
-                stateOnCall = 0
-            else:
-                decodedLetter = morse_to_letter(morseInput.strip())
-                decodedWord += decodedLetter
-                morseInput = ""  # Reset for next letter
-                if morseChar == "       ":  # End of word
-                    break
-        stateOnCall = 1 - stateOnCall  # Toggle state
-    return decodedWord.strip()
-
-# Main execution
-
-try:
-    determineAverageDotandDash()
-    print("Ready for Morse code input. Send 'out' to stop.")
-    with open("output.txt", "w") as file:
+    try:
         while True:
-            decodedWord = decodeUserInput()
-            print(decodedWord)  # Display decoded word
-            file.write(decodedWord + "\n")  # Write decoded word to file
-            if decodedWord.lower() == "out":
-                break
-finally:
-    GPIO.cleanup()
+            input_state = GPIO.input(KEY_PIN)
+            if input_state == GPIO.HIGH:  # Key Press Detected
+                GPIO.output(LED_PIN, GPIO.HIGH)  # Turn on LED
+                time.sleep(DEBOUNCE_DELAY)  # Debouncing
+                if GPIO.input(KEY_PIN) == GPIO.HIGH:  # Confirm key press after debounce
+                    pwm.start(50)  # Start speaker
+                    start_time = time.time()
+                    while GPIO.input(KEY_PIN) == GPIO.HIGH:
+                        pass  # Wait until key is released
+                    pwm.stop()  # Stop speaker
+                    GPIO.output(LED_PIN, GPIO.LOW)  # Turn off LED
+                    signal_length = time.time() - start_time
+                    handle_morse_code(signal_length)
+                    time.sleep(dot_length)  # Wait for the end of the character
+                    decode_morse()  # Decode after each signal to simplify
+
+    except KeyboardInterrupt:
+        GPIO.cleanup()
+
+if __name__ == "__main__":
+    main()
