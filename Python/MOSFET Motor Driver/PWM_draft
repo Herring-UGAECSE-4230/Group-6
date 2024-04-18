@@ -1,82 +1,130 @@
-#final for grading Mosfet IR
 import RPi.GPIO as GPIO
+import pigpio
 import time
-#Setting up library and GPIOs
-GPIO.setwarnings(False)
+from pigpio_encoder.rotary import Rotary
+from math import e
+
+#IR sensor initialization
+IR_pin = 4
+
+#GPIO Pin Setup for PWM
 GPIO.setmode(GPIO.BCM)
-clk = 21
-dt = 20
-sw = 26
-ir = 15
-GPIO.setup(clk, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(dt, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(sw, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(ir, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(18, GPIO.OUT)
 
+#pin setup for IR
+GPIO.setup(4, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-#setting up timers
-anchor = time.time() #Checks every 5ms for clk and dt values
-anchorT = time.time() #Checks every 3s to calculate RPM
-anchorW = time.time() #Checks every 500ms for the button
+#Setting Up GPIO pin for PWM Output
+pwm = GPIO.PWM(18, 50)
 
+pi = pigpio.pi()
 
-counter = 80 #Tracks the position of the encoder
-switch = True #True if the motor should move (switch has not been pressed yet)
-IRlatch = True #True if the IRinput value can be changed.
-numHigh = 0 #Counts the number of rising edges from the IR sensor in the last 3s
-lastCounter = 0 #Stores previous value. used to find direction and speed
-lastClkState = GPIO.input(clk) #Previous value at the clk pin on the encoder. Used to determine if the encoder is turning.
+#variabl initialization
+start_flag = 1
+last_counter = 0
+desired_RPM = 1861
+DC = 0
+counter_RPM = 0
+restart = 0
+tyler = 0
+RPM_value = 0
+DC =20
+desired_RPM = 0
+sofia = 0
 
-pwm = GPIO.PWM(18, 1000) #pwm will have a frequency of 1k Hz
-duty = 25 #duty cycle changes to alter the RPM
-expRPM = 2000 #the expected RPM according to our transfer function
+#function called when rotary encoder is turned
+def rotary_callback(counter):
+    global last_counter, desired_RPM, DC, counter_RPM, RPM_value, end_time
+    if counter > last_counter:  #counter clockwise
+        last_counter = counter
+        if pi.read(13)==1:
+#             RPM = -789.552 + 884.9955*ln(DC)
+            desired_RPM += 25 #increment RPMs by 25 with each encoder spin
+            DC = e**((desired_RPM+789.552)/884.9955)
+            pwm.start(DC) #makes the motor spin at the desired duty cycle to increase the RPMs by 25
+            counter = 0
+            count_for_math = 0
+            start_time = time.time()
+            switch = 0
+            if tyler == 1:
+                while count_for_math < 8:
+                    if pi.read(4) == 1 and not switch:
+                        count_for_math += 1
+                        switch = 1
+                    else:
+#                         pi.read(4) == 0 and switch:
+                        switch = 0
+                end_time = time.time()
+                total_time = end_time - start_time
+                time_var = 60/total_time  # time_multiplier_to_get_to_60_sec
+                RPM_value = time_var/20
+                
+#function called when sw is short pressed
+def sw_short():
+    global start_flag, tyler
+    tyler = 1
+    if start_flag ==1:
+        start_func()
+        start_flag = 0
+    elif start_flag == 0:
+        stop_func()
+        start_flag = 1
 
-pwm.start(25) 
-IRinput = GPIO.input(ir) #Initializing IRinput value
-while(True):
-    clkState = GPIO.input(clk) #Current values of clk and dt
-    dtState = GPIO.input(dt)
-    
-    if(time.time() - anchor >= 0.005): #Updates counter. Checks every 5ms for debouncing.
-        if(switch): #Can't change duty cycle when pwm is disabled
-            anchor = time.time()
-            if (clkState != lastClkState): #If clkState has changed, the values of dt and clk indicate
-                if (dtState != clkState):  #the direction the encoder is rotating
-                    counter += 0.5
-                else:
-                    counter -= 0.5
-            lastClkState = clkState
-            
-            if(round(counter) > 172): #Max and min counter values
-                counter = 172
-            if(round(counter) < 0):
-                counter = 0
-            if((round(counter) * 25) != expRPM): #If counter has changed, adjust duty cycle
-                expRPM = (round(counter) * 25) #Each tick of the counter will ideally change the RPM by 25
-                duty = 2.48+(0.0122*expRPM)-(0.00000238*(expRPM**2))+(0.000000000929*(expRPM**3))
-                #duty = -21.7 + 0.101*expRPM - (1.27*(10**-4)*(expRPM**2)) + (8.53*(10**-8)*(expRPM**3)) - (2.96*(10**-11)*(expRPM**4)) + (5.14*(10**-15)*(expRPM**5)) - (3.48*(10**-19)*(expRPM**6))
-                pwm.ChangeDutyCycle(duty) #Duty is set according to our transfer function 
-                print("Expected RPM: " + str(expRPM))
-                    
-    if(time.time() - anchorT >= 3): #Calculating the actual RPM based on the last three seconds
-        numHigh = (numHigh*20)/3 
-        print("RPM " + str(numHigh))
-        numHigh = 0
-        anchorT = time.time()
-        
-    if(time.time() - anchorW >= 0.5): #Checks for button presses. Checks every 500ms for readability.
-        if(GPIO.input(sw) == False):
-            if(switch):
-                pwm.ChangeDutyCycle(0)
-            else:
-                pwm.ChangeDutyCycle(duty)
-            switch = not (switch)
-            anchorW = time.time()
-            
-    IRinput = not GPIO.input(ir) #Flips the sensor reading because it's more intuitive
-    if(IRinput and IRlatch): #If the input was low and became high, increment counter
-        numHigh += 1
-        IRlatch = False #Clears the latch while the input is high
-    if(not IRinput): #Indicating the input is low again, sets the latch
-        IRlatch = True
+def start_func():
+    global DC, RPM_value, desired_RPM, sofia
+    #initliazes freqency value
+    pwm.ChangeFrequency(1000)
+    #starts PWN output aka motor
+    DC = 20
+    pwm.start(DC)
+    tyler = 1
+    desired_RPM = 1861
+    if sofia == 0:
+        RPM_value = 1761
+        sofia = 1
+    if sofia == 1:
+        pass
+
+def stop_func():
+    global RPM_value, sofia
+    RPM_value = 0
+    #Stopping PWM Output aka motor
+    pwm.stop()
+
+my_rotary = Rotary(
+            clk_gpio=17,
+            dt_gpio=27,
+            sw_gpio=22,
+        )
+my_rotary.setup_rotary(
+            min=0,
+            max=100000000,
+            scale=1,
+            debounce=200,
+            rotary_callback=rotary_callback
+        )
+
+my_rotary.setup_switch(
+    debounce=200,
+    long_press=True,
+    sw_short_callback=sw_short,
+        )
+
+edge_count =0 
+def count(GPIO):
+    global edge_count
+    edge_count += 1
+
+#detects everytime there is a rising edge aka the fan blade activates the IR sensor
+GPIO.add_event_detect(IR_pin, GPIO.RISING, callback = count)
+
+# (revolutions / min) / 3 = what we want
+try:
+    while True:
+        print(f"Actual RPM: {RPM_value/2}")
+        time.sleep(.3)
+        print(f"Expected RPM: {desired_RPM/2}")
+        time.sleep(.3)
+       
+except:
+    GPIO.cleanup()
