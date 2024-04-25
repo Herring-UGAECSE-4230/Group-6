@@ -65,20 +65,20 @@ main:
 @.equ Off_time,    1000000000
 
 @ Give the value of the On_time and Off_time (1HZ: (50/50)dutycycles)
-.equ On_time,     450000000
-.equ Off_time,    450000000
+@.equ On_time,     450000000
+@.equ Off_time,    450000000
 
 @100 Hz 50/50
 @.equ On_time,     4500000
 @.equ Off_time,    4500000
 
-@ Give the value of the On_time and Off_time (1kHZ: (25/75)dutycycles)
-@.equ On_time,     225000
-@.equ Off_time,    675000
-
 @ Give the value of the On_time and Off_time (1kHZ: (50/50)dutycycles)
 @.equ On_time,     450000
 @.equ Off_time,    450000
+
+@ Give the value of the On_time and Off_time (1kHZ: (75/25)dutycycles)
+@.equ On_time,     675000
+@.equ Off_time,    225000
 
 @ Give the value of "fastest can run a square wave" the On_time and Off_time
 @.equ On_time,     4500
